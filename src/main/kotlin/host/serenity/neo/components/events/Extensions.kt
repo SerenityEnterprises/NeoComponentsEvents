@@ -2,14 +2,14 @@ package host.serenity.neo.components.events
 
 import host.serenity.neo.components.events.util.GenericInfo
 
-inline fun <T : Event> EventBus.register(listener: Listener<T>) {
+fun <T : Event> EventBus.register(listener: Listener<T>) {
     val eventClass = GenericInfo.getGenericType(listener.javaClass)
 
     @Suppress("UNCHECKED_CAST")
     register(eventClass as Class<T>, listener)
 }
 
-inline fun <T : Event> EventBus.unregister(listener: Listener<T>) {
+fun <T : Event> EventBus.unregister(listener: Listener<T>) {
     val eventClass = GenericInfo.getGenericType(listener.javaClass)
 
     @Suppress("UNCHECKED_CAST")
