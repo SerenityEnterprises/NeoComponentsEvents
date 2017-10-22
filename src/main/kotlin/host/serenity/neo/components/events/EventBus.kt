@@ -1,33 +1,46 @@
 package host.serenity.neo.components.events
 
-class EventBus {
-    private val listeners: MutableList<ListenerWrapper<*>> = mutableListOf()
+import host.serenity.neo.components.events.performance.ListenerTracker
+import host.serenity.neo.components.events.performance.ListenerWrapper
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentMap
 
-    fun <T : Event> register(type: Class<T>, listener: Listener<T>) {
-        listeners += ListenerWrapper(type, listener)
+class EventBus {
+    private val listeners: ConcurrentMap<Class<*>, MutableSet<ListenerWrapper<*>>> = ConcurrentHashMap()
+    private val tracker = ListenerTracker()
+
+    fun <T : Event> register(type: Class<T>, listener: Listener<T>): Int {
+        listeners.putIfAbsent(type, mutableSetOf())
+
+        val wrapper = ListenerWrapper(type, listener)
+        val set: MutableSet<ListenerWrapper<*>> = listeners[type]!!
+        set += wrapper
+
+        return tracker.add(wrapper, set)
     }
 
-    fun <T : Event> unregister(type: Class<T>, listener: Listener<T>) {
-        listeners.removeIf { it.type == type && it.listener == listener }
+    fun <T : Event> unregister(listener: Listener<T>) {
+        val id: Int? = tracker.getID(listener)
+        if (id != null) {
+            unregister(id)
+        }
+    }
+
+    fun unregister(id: Int) {
+        tracker.getContainingSet(id)?.remove(tracker.getListenerWrapper(id))
+        tracker.removeReference(id)
     }
 
     fun <T : Event> post(event: T) : T {
         val type: Class<in Event> = event.javaClass
 
-        listeners.asSequence()
-                .filter { it.type.isAssignableFrom(type) }
-                .map {
+        listeners[type]?.asSequence()
+                ?.map {
                     @Suppress("UNCHECKED_CAST")
                     it as Listener<T>
                 }
-                .forEach { it.fire(event) }
+                ?.forEach { it.fire(event) }
 
         return event
-    }
-
-    private data class ListenerWrapper<T : Event>(val type: Class<T>, val listener: Listener<T>) : Listener<T> {
-        override fun fire(event: T) {
-            listener.fire(event)
-        }
     }
 }

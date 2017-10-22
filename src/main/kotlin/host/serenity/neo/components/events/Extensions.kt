@@ -8,10 +8,3 @@ fun <T : Event> EventBus.register(listener: Listener<T>) {
     @Suppress("UNCHECKED_CAST")
     register(eventClass as Class<T>, listener)
 }
-
-fun <T : Event> EventBus.unregister(listener: Listener<T>) {
-    val eventClass = GenericInfo.getGenericType(listener.javaClass)
-
-    @Suppress("UNCHECKED_CAST")
-    register(eventClass as Class<T>, listener)
-}
