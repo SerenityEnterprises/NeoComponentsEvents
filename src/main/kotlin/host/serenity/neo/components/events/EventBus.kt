@@ -7,14 +7,13 @@ import java.util.concurrent.ConcurrentMap
 import java.util.concurrent.CopyOnWriteArraySet
 
 class EventBus {
-    private val listeners: ConcurrentMap<Class<*>, MutableSet<ListenerWrapper<*>>> = ConcurrentHashMap()
+    private val listeners: ConcurrentMap<Class<*>, ListenerRegistry> = ConcurrentHashMap()
     private val tracker = ListenerTracker()
 
-    fun <T : Event> register(type: Class<T>, listener: Listener<T>): Int {
-        listeners.putIfAbsent(type, CopyOnWriteArraySet())
-
+    @JvmOverloads
+    fun <T : Event> register(type: Class<T>, listener: Listener<T>, priority: Priority = Priority.NORMAL): Int {
         val wrapper = ListenerWrapper(type, listener)
-        val set: MutableSet<ListenerWrapper<*>> = listeners[type]!!
+        val set: MutableSet<ListenerWrapper<*>> = listeners.getOrPut(type, { ListenerRegistry() })[priority]
         set += wrapper
 
         return tracker.add(wrapper, set)
@@ -35,12 +34,14 @@ class EventBus {
     fun <T : Event> post(event: T) : T {
         val type: Class<in Event> = event.javaClass
 
-        listeners[type]?.asSequence()
-                ?.map {
-                    @Suppress("UNCHECKED_CAST")
-                    it as Listener<T>
-                }
-                ?.forEach { it.fire(event) }
+        listeners[type]?.listeners?.forEach { listenersForPriority ->
+            listenersForPriority.asSequence()
+                    .map {
+                        @Suppress("UNCHECKED_CAST")
+                        it as Listener<T>
+                    }
+                    .forEach { it.fire(event) }
+        }
 
         return event
     }
